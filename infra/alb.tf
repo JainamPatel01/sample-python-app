@@ -29,7 +29,7 @@ resource "aws_security_group" "svc_sg" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "Allow from ALB SG"
+    description     = "Allow from ALB SG"
     from_port       = var.app_container_port
     to_port         = var.app_container_port
     protocol        = "tcp"
@@ -47,20 +47,20 @@ resource "aws_security_group" "svc_sg" {
 }
 
 resource "aws_lb" "alb" {
-  name               = "${var.project_name}-alb"
-  load_balancer_type = "application"
-  subnets            = [for s in aws_subnet.public : s.id]
-  security_groups    = [aws_security_group.alb_sg.id]
-  internal           = false
+  name                       = "${var.project_name}-alb"
+  load_balancer_type         = "application"
+  subnets                    = [for s in aws_subnet.public : s.id]
+  security_groups            = [aws_security_group.alb_sg.id]
+  internal                   = false
   enable_deletion_protection = false
-  tags = { Name = "${var.project_name}-alb" }
+  tags                       = { Name = "${var.project_name}-alb" }
 }
 
 resource "aws_lb_target_group" "tg" {
-  name     = "${var.project_name}-tg"
-  port     = var.app_container_port
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name        = "${var.project_name}-tg"
+  port        = var.app_container_port
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
   target_type = "ip"
 
   health_check {

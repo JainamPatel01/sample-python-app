@@ -18,28 +18,28 @@ resource "aws_vpc" "main" {
 
 # Public subnets across 2 AZs
 resource "aws_subnet" "public" {
-  for_each = zipmap(local.use_azs, var.public_subnet_cidrs)
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = each.value
-  availability_zone = each.key
+  for_each                = zipmap(local.use_azs, var.public_subnet_cidrs)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = each.value
+  availability_zone       = each.key
   map_public_ip_on_launch = true
-  tags = { Name = "${var.project_name}-public-${each.key}" }
+  tags                    = { Name = "${var.project_name}-public-${each.key}" }
 }
 
 # Private subnets across 2 AZs
 resource "aws_subnet" "private" {
-  for_each = zipmap(local.use_azs, var.private_subnet_cidrs)
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = each.value
-  availability_zone = each.key
+  for_each                = zipmap(local.use_azs, var.private_subnet_cidrs)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = each.value
+  availability_zone       = each.key
   map_public_ip_on_launch = false
-  tags = { Name = "${var.project_name}-private-${each.key}" }
+  tags                    = { Name = "${var.project_name}-private-${each.key}" }
 }
 
 # Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
-  tags = { Name = "${var.project_name}-igw" }
+  tags   = { Name = "${var.project_name}-igw" }
 }
 
 # Public route table
@@ -54,7 +54,7 @@ resource "aws_route_table" "public" {
 
 # Associate public subnets with public rt
 resource "aws_route_table_association" "public_assoc" {
-  for_each = aws_subnet.public
+  for_each       = aws_subnet.public
   subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
 }
@@ -62,22 +62,22 @@ resource "aws_route_table_association" "public_assoc" {
 # EIPs and NAT Gateways (one per AZ/private subnet)
 resource "aws_eip" "nat_eip" {
   for_each = aws_subnet.public
-  domain = "vpc"
-  tags = { Name = "${var.project_name}-nat-eip-${each.key}" }
+  domain   = "vpc"
+  tags     = { Name = "${var.project_name}-nat-eip-${each.key}" }
 }
 
 resource "aws_nat_gateway" "nat" {
-  for_each = aws_subnet.public
+  for_each      = aws_subnet.public
   allocation_id = aws_eip.nat_eip[each.key].id
   subnet_id     = each.value.id
-  tags = { Name = "${var.project_name}-nat-${each.key}" }
-  depends_on = [aws_internet_gateway.igw]
+  tags          = { Name = "${var.project_name}-nat-${each.key}" }
+  depends_on    = [aws_internet_gateway.igw]
 }
 
 # Private route tables with NAT gateway (one per AZ)
 resource "aws_route_table" "private" {
   for_each = aws_subnet.private
-  vpc_id = aws_vpc.main.id
+  vpc_id   = aws_vpc.main.id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_nat_gateway.nat[aws_subnet.public[each.key].id ? aws_subnet.public[each.key].id : keys(aws_subnet.public)[0]].id
@@ -88,7 +88,7 @@ resource "aws_route_table" "private" {
 
 # Associate private subnets with their private rt
 resource "aws_route_table_association" "private_assoc" {
-  for_each = aws_subnet.private
+  for_each       = aws_subnet.private
   subnet_id      = each.value.id
   route_table_id = aws_route_table.private[each.key].id
 }
