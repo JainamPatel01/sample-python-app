@@ -1,21 +1,17 @@
-FROM python:3.8.0-alpine3.10
-# Python docker images: https://github.com/docker-library/docs/tree/master/python/
+# Dockerfile
+FROM python:3.11-slim
 
-USER root
-
-# Copy the src
 WORKDIR /app
-COPY src/ /app/src/
-COPY ./requirements.txt /app
-RUN ls -la /app
 
-# Install python dependencies
-RUN python3 --version
-RUN pip3 install --upgrade pip
-RUN pip3 install --no-cache-dir -r /app/requirements.txt
-RUN pip3 list --format=columns
+# Install runtime deps
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-USER 1001
+# Copy app
+COPY . .
 
-# EXPOSE 5001
+# Expose configurable port
+ENV APP_PORT=5000
+EXPOSE ${APP_PORT}
+
 ENTRYPOINT ["python3", "/app/src/app.py"]
