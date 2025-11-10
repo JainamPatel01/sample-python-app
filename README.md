@@ -1,62 +1,78 @@
-# Sample containerized Python application
+# sample-python-app — AWS Fargate Automated Deployment (Terraform + GitHub Actions)
 
-This repo contains a sample application to deploy to Kubernetes. The application is a simple HelloWorld app using Python and Flask framework.
+This repository demonstrates a fully automated pipeline that:
 
-## Run with Docker
+- Builds and containerizes `sample-python-app`
+- Pushes images to Amazon ECR
+- Provisions AWS infrastructure via Terraform (VPC, ALB, ECS Fargate, ECR, CloudWatch)
+- Deploys the service in private subnets behind an internet-facing ALB
+- Performs rolling updates when new commits are pushed to `main`
 
-```bash
-$ docker build -f Dockerfile -t hello-python:latest .
+## Structure
 
-$ docker run -it -p 5001:5001 --name hello_python hello-python:latest
+- `Dockerfile` — containerizes the app, listens on configurable port (`5000` by default).
+- `infra/` — Terraform configuration to create VPC, subnets, NAT, ALB, ECR, ECS, CloudWatch, IAM.
+- `.github/workflows/deploy.yml` — GitHub Actions pipeline:
+  1. Build Docker image.
+  2. Push to ECR with tag = commit SHA.
+  3. Run `terraform apply` with `image_uri` variable set to the new image -> triggers ECS rolling update.
 
-# Docker Docs: https://docs.docker.com/
-# Docker Reference: https://docs.docker.com/reference/
-```
+## Prerequisites
 
-## Run with Docker Compose
+1. Fork this repository.
+2. Create GitHub repository secrets:
+   - `AWS_ACCESS_KEY_ID` — IAM user with sufficient privileges (ECR, ECS, EC2 networking, IAM, CloudWatch, ELB, VPC)
+   - `AWS_SECRET_ACCESS_KEY`
+   - `AWS_REGION` (e.g., `us-east-1`)
+   - `ECR_REPO_NAME` (e.g., `sample-python-app`)
+3. Ensure `requirements.txt` includes `gunicorn` (or adapt Dockerfile command).
 
-```bash
-$ docker-compose up hello_py_devl && docker-compose rm -fsv
+## How it works
 
-# For additional instruction please see notes at the bottom
-# of docker-compose.yml file in the app root directory.
+- Terraform creates:
+  - VPC with 2 public + 2 private subnets (across 2 AZs).
+  - Internet Gateway and NAT Gateway(s).
+  - ALB in public subnets (internet-facing), listener on port 80.
+  - ECR repository.
+  - ECS cluster and Fargate service in private subnets with `assign_public_ip = false`.
+  - Security groups configured so ALB (SG) is public and ECS tasks only accept traffic from ALB SG on the app port.
+  - CloudWatch Log Group for container logs.
 
-# Docker compose docs: https://docs.docker.com/compose/
-```
+- GitHub Actions:
+  - On push to `main`, build and push Docker image and call `terraform apply` with `-var image_uri=<account>.dkr.ecr...:<sha>`.
+  - Terraform updates the ECS task definition `image` field and ECS will perform a rolling deployment with the specified `minimum_healthy_percent` / `maximum_percent` settings.
 
-## Run with Python
+## Use / Run
 
-System Requirements: [Git](http://www.git-scm.com), [Python 3.8.0](https://www.python.org/downloads/)
+1. Ensure your fork's `main` branch has these files.
+2. Set the GitHub secrets (see above).
+3. Push a commit to `main`.
+4. Watch Actions tab — the workflow builds the image, pushes to ECR, and applies Terraform.
+   - Terraform will create infra on first run.
+   - Subsequent pushes will push a new image tag and `terraform apply` will update ECS to the new image (rolling update).
 
-```bash
-# Check dependencies
-$ git --version
-git version 2.23.0
+## Important notes / assumptions
 
-$ python --version
-Python 3.8.0
+- Terraform uses the local backend in this demo (state stored by the runner during apply). For production use, configure an S3 backend (and create the bucket and DynamoDB lock table) — this can be bootstrapped separately.
+- The IAM user used in GitHub secrets needs privileges to create VPCs, subnets, NAT/EIP, ALB, ECR, ECS, IAM roles, CloudWatch logs.
+- No secrets are hard-coded. All sensitive creds go in GitHub Secrets.
+- App listens on `5000` by default; change `APP_PORT` in Dockerfile or workflow if needed.
 
-$ pip --version # pip comes as a part of python install
-pip 20.0.2 from /usr/local/lib/python3.8/site-packages/pip (python 3.8)
+## Evidence / Acceptance checklist
 
-# Clone the sourcecode
-$ git clone <repo url>
-$ cd <project dir>
+After running the pipeline you should gather the following evidence:
 
-# Install project dependencies
-$ pip install -r requirements.txt
+- **Successful GitHub Actions run**: screenshot of the Actions run showing steps succeeded.
+- **ECS service deployment**: screenshot of ECS console showing service updated and tasks healthy, include task definition revision and events showing deployment/rolling update.
+- **App reachable at ALB DNS**: open `http://<ALB_DNS>` and show app response. ALB DNS is output by Terraform (also printed by the workflow at the end).
+- **Networking checks**:
+  - Tasks have **no public IPs** (verify in ECS task network details).
+  - ALB is internet-facing and in public subnets.
+  - Security group rules: ALB allows `0.0.0.0/0:80`, service only allows from ALB SG on app port.
 
-# Run the application
-$ PORT=5001 python src/app.py
+## Troubleshooting
 
-# Check application
-$ curl http://localhost:5001/debug
-# (or)
-# In Browser visit -> http://localhost:5001/debug/ui
-```
+- If `terraform apply` fails due to limits for EIPs/NAT, check your AWS account limits.
+- For debugging container logs, view CloudWatch Logs (log group `/ecs/sample-python-app`).
+- If ALB health checks fail, confirm container responds on `/` and port `5000`.
 
-## Sample output
-
-Pointing your browser to <http://localhost:5001/debug/ui> will bring up the following:
-
-![](images/output.png)
