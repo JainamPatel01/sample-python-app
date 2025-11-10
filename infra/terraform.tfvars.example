@@ -1,0 +1,5 @@
+aws_region = "ap-south-1"
+project_name = "sample-python-app"
+# If you want to specify AZs, uncomment and set:
+# azs = ["us-east-1a", "us-east-1b"]
+# image_uri will be set by CI pipeline when applying terraform
