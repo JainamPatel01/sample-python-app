@@ -44,7 +44,7 @@ resource "aws_ecs_service" "service" {
   deployment_maximum_percent         = 200
 
   network_configuration {
-    subnets         = values(aws_subnet.private).*id
+    subnets         = [for s in aws_subnet.private : s.id]
     security_groups = [aws_security_group.svc_sg.id]
     assign_public_ip = false
   }
