@@ -3,7 +3,7 @@ name: CI/CD — Build & Deploy to ECS (Terraform)
 on:
   push:
     branches:
-      - main
+      - master
 
 env:
   APP_PORT: 5000
