@@ -18,23 +18,28 @@ resource "aws_vpc" "main" {
 
 # Public subnets across 2 AZs
 resource "aws_subnet" "public" {
-  for_each                = zipmap(local.use_azs, var.public_subnet_cidrs)
+  for_each                = var.public_subnets
   vpc_id                  = aws_vpc.main.id
   cidr_block              = each.value
-  availability_zone       = each.key
+  availability_zone       = var.azs[index(keys(var.public_subnets), each.key)]
   map_public_ip_on_launch = true
-  tags                    = { Name = "${var.project_name}-public-${each.key}" }
+  tags = {
+    Name = "${var.project_name}-public-${each.key}"
+  }
 }
 
 # Private subnets across 2 AZs
 resource "aws_subnet" "private" {
-  for_each                = zipmap(local.use_azs, var.private_subnet_cidrs)
+  for_each                = var.private_subnets
   vpc_id                  = aws_vpc.main.id
   cidr_block              = each.value
-  availability_zone       = each.key
+  availability_zone       = var.azs[index(keys(var.private_subnets), each.key)]
   map_public_ip_on_launch = false
-  tags                    = { Name = "${var.project_name}-private-${each.key}" }
+  tags = {
+    Name = "${var.project_name}-private-${each.key}"
+  }
 }
+
 
 # Internet Gateway
 resource "aws_internet_gateway" "igw" {
@@ -77,14 +82,20 @@ resource "aws_nat_gateway" "nat" {
 # Private route tables with NAT gateway (one per AZ)
 resource "aws_route_table" "private" {
   for_each = aws_subnet.private
-  vpc_id   = aws_vpc.main.id
+
+  vpc_id = aws_vpc.main.id
+
   route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.nat[aws_subnet.public[each.key].id ? aws_subnet.public[each.key].id : keys(aws_subnet.public)[0]].id
-    # The above expression ensures one NAT is picked for the corresponding AZ
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat[each.key].id
   }
-  tags = { Name = "${var.project_name}-private-rt-${each.key}" }
+
+  tags = {
+    Name = "${var.project_name}-private-rt-${each.key}"
+  }
 }
+
+
 
 # Associate private subnets with their private rt
 resource "aws_route_table_association" "private_assoc" {

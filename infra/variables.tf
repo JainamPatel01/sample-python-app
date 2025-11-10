@@ -1,3 +1,9 @@
+variable "app_name" {
+  type        = string
+  description = "Application name for tagging and resource naming"
+  default     = "sample-python-app"
+}
+
 variable "aws_region" {
   description = "AWS region"
   type        = string
@@ -16,23 +22,29 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-variable "public_subnet_cidrs" {
-  description = "List of public subnet CIDRs (2 minimum)"
-  type        = list(string)
-  default     = ["10.0.0.0/24", "10.0.1.0/24"]
+variable "public_subnets" {
+  type = map(string)
+  default = {
+    a = "10.0.1.0/24"
+    b = "10.0.2.0/24"
+  }
 }
 
-variable "private_subnet_cidrs" {
-  description = "List of private subnet CIDRs (2 minimum)"
-  type        = list(string)
-  default     = ["10.0.10.0/24", "10.0.11.0/24"]
+variable "private_subnets" {
+  type = map(string)
+  default = {
+    a = "10.0.3.0/24"
+    b = "10.0.4.0/24"
+  }
 }
+
 
 variable "azs" {
   description = "AZs to use (2 values recommended)"
   type        = list(string)
-  default     = [2]
+  default     = ["ap-south-1a", "ap-south-1b"]
 }
+
 
 variable "app_container_port" {
   description = "Port the container listens on"
