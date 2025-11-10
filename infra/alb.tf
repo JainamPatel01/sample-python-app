@@ -49,7 +49,7 @@ resource "aws_security_group" "svc_sg" {
 resource "aws_lb" "alb" {
   name               = "${var.project_name}-alb"
   load_balancer_type = "application"
-  subnets            = values(aws_subnet.public).*id
+  subnets            = [for s in aws_subnet.public : s.id]
   security_groups    = [aws_security_group.alb_sg.id]
   internal           = false
   enable_deletion_protection = false
