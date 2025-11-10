@@ -62,7 +62,7 @@ resource "aws_route_table_association" "public_assoc" {
 # EIPs and NAT Gateways (one per AZ/private subnet)
 resource "aws_eip" "nat_eip" {
   for_each = aws_subnet.public
-  vpc = true
+  domain = "vpc"
   tags = { Name = "${var.project_name}-nat-eip-${each.key}" }
 }
 
